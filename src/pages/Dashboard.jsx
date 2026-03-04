@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, BookOpen, Target, ArrowRight,
-  BarChart2,TrendingUp, Zap, Map,
+  BarChart2, TrendingUp, Zap, Map,
   LogOut, User, ChevronRight, Star, Briefcase, Brain
 } from 'lucide-react';
 import supabase from '../supabaseClient';
-
 
 // ─── Role-based recommendations ───────────────────────────────────────────────
 const ROLE_RECS = {
@@ -218,7 +217,10 @@ export default function Dashboard() {
   const recs       = getRecsForRole(learner?.target_job_role);
   const firstName  = (learner?.full_name ?? learner?.name ?? 'Learner').split(' ')[0];
   const sp         = roadmap?.success_probability != null
-    ? `${parseFloat(roadmap.success_probability).toFixed(0)}%` : '—';
+    ? `${(parseFloat(roadmap.success_probability) < 1
+        ? parseFloat(roadmap.success_probability) * 100
+        : parseFloat(roadmap.success_probability)).toFixed(0)}%`
+    : '—';
 
   const greeting = () => {
     const h = new Date().getHours();

@@ -414,7 +414,9 @@ export default function RoadmapPage() {
   const done = phases.filter(p => (p.status ?? '') === STATUS.completed).length;
   const pct  = phases.length ? Math.round((done / phases.length) * 100) : 0;
   const sp   = roadmap?.success_probability != null
-    ? `${parseFloat(roadmap.success_probability).toFixed(2)}%`
+    ? `${(parseFloat(roadmap.success_probability) < 1
+        ? parseFloat(roadmap.success_probability) * 100
+        : parseFloat(roadmap.success_probability)).toFixed(0)}%`
     : '—';
 
   return (

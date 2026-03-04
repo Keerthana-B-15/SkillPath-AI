@@ -403,13 +403,13 @@ const checkEmailAvailability = async (email) => {
               />
               <label htmlFor="terms" className="ml-3 text-sm text-gray-700">
                 I agree to the{' '}
-                <a href="#" className="text-[#2B7A78] hover:underline font-medium">
+                <button type="button" className="text-[#2B7A78] hover:underline font-medium">
                   Terms of Service
-                </a>{' '}
+                </button>{' '}
                 and{' '}
-                <a href="#" className="text-[#2B7A78] hover:underline font-medium">
+                <button type="button" className="text-[#2B7A78] hover:underline font-medium">
                   Privacy Policy
-                </a>
+                </button>
                 <span className="text-red-500 ml-1">*</span>
               </label>
             </div>

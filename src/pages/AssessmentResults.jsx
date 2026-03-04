@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import supabase from '../supabaseClient';
+// import supabase from '../supabaseClient';
 
 const BACKEND_URL = "https://ai-powered-personalized-learning-path-gb1i.onrender.com";
 

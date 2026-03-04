@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Sparkles, BookOpen, Target, Award, Clock, ArrowRight,
-  BarChart2, CheckCircle2, TrendingUp, Zap, Map,
+  Sparkles, BookOpen, Target, ArrowRight,
+  BarChart2,TrendingUp, Zap, Map,
   LogOut, User, ChevronRight, Star, Briefcase, Brain
 } from 'lucide-react';
 import supabase from '../supabaseClient';

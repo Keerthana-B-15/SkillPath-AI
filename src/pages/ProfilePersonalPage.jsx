@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, User, MapPin, GraduationCap, Loader2 } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
+import supabase from '../supabaseClient';
 
-// Initialize Supabase client
-const supabase = createClient(
-  'https://uchrywxwbllkpwgcqeje.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjaHJ5d3h3Ymxsa3B3Z2NxZWplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwODk2NDcsImV4cCI6MjA4NDY2NTY0N30.8IH6FSB6aMQhF7o7HG9yPwNoiagg0askPaBZsdA7QeM'
-);
 
 export default function ProfilePersonalPage() {
   const navigate = useNavigate();
@@ -62,7 +57,7 @@ export default function ProfilePersonalPage() {
         .from('learners')
         .select('full_name, age, location, education_level')
         .eq('user_id', uid)
-        .single();
+        .maybeSingle();
 
       if (data && !error) {
         setFormData({
@@ -333,7 +328,7 @@ export default function ProfilePersonalPage() {
 
         {/* Footer Note */}
         <p className="text-center text-xs text-gray-500 mt-8">
-          © 2024 SkillPath AI Learning Systems. All rights reserved.
+          © 2026 SkillPath AI Learning Systems. All rights reserved.
         </p>
       </div>
     </div>

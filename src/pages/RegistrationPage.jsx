@@ -1,13 +1,8 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Check, X, Sparkles, Loader2 } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
+import supabase from '../supabaseClient';
 
-// Initialize Supabase client
-const supabase = createClient(
-  'https://uchrywxwbllkpwgcqeje.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjaHJ5d3h3Ymxsa3B3Z2NxZWplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwODk2NDcsImV4cCI6MjA4NDY2NTY0N30.8IH6FSB6aMQhF7o7HG9yPwNoiagg0askPaBZsdA7QeM'
-);
 
 export default function RegistrationPage() {
     const navigate = useNavigate();
@@ -26,34 +21,37 @@ export default function RegistrationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check email availability in Supabase
-  const checkEmailAvailability = async (email) => {
-    if (!email || !email.includes('@')) {
-      setEmailStatus('');
+const checkEmailAvailability = async (email) => {
+  if (!email || !email.includes('@') || !email.includes('.')) {
+    setEmailStatus('');
+    return;
+  }
+
+  setEmailStatus('checking');
+
+  try {
+    const { data, error } = await supabase
+      .from('learners')
+      .select('email')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+
+    if (error) {
+      // Any error — just mark as available and move on
+      setEmailStatus('available');
       return;
     }
-    
-    setEmailStatus('checking');
-    
-    try {
-      // Check if email exists in learners table
-      const { data, error } = await supabase
-        .from('learners')
-        .select('email')
-        .eq('email', email.toLowerCase())
-        .single();
 
-      if (error && error.code === 'PGRST116') {
-        // No rows returned - email is available
-        setEmailStatus('available');
-      } else if (data) {
-        // Email exists
-        setEmailStatus('taken');
-      }
-    } catch (err) {
-      console.error('Error checking email:', err);
-      setEmailStatus('');
+    if (data) {
+      setEmailStatus('taken');
+    } else {
+      setEmailStatus('available');
     }
-  };
+  } catch (err) {
+    console.error('Email check error:', err);
+    setEmailStatus('available'); // Don't block user on error
+  }
+};
 
   // Password strength calculator
   const calculatePasswordStrength = (password) => {
@@ -438,16 +436,16 @@ export default function RegistrationPage() {
             {/* Sign In Link */}
             <p className="text-center text-sm text-gray-600">
               Already have an account?{' '}
-              <a href="#" className="text-[#2B7A78] hover:underline font-medium">
+              <button onClick={() => navigate('/login')} className="text-[#2B7A78] hover:underline font-medium">
                 Sign In
-              </a>
+              </button>
             </p>
           </div>
         </div>
 
         {/* Footer Note */}
         <p className="text-center text-xs text-gray-500 mt-8">
-          © 2024 SkillPath AI Learning Systems. All rights reserved.
+          © 2026 SkillPath AI Learning Systems. All rights reserved.
         </p>
       </div>
     </div>

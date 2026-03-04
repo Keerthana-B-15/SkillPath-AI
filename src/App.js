@@ -5,7 +5,14 @@ import RegistrationPage from './pages/RegistrationPage';
 import ProfilePersonalPage from './pages/ProfilePersonalPage';
 import ProfilePreferencesPage from './pages/ProfilePreferencesPage';
 import ProfileSkillsPage from './pages/ProfileSkillsPage';
-import CareerGoalPage from './pages/CareerGoalPage';
+import RoadmapPage from './pages/RoadmapPage';
+import AssessmentFlow from './pages/AssessmentFlow';
+import AssessmentResults from './pages/AssessmentResults';
+import SignInPage from './pages/SignInPage';
+import Dashboard from './pages/Dashboard';
+import ResultsHistoryPage from './pages/ResultsHistoryPage';
+
+
 
 function App() {
   return (
@@ -16,7 +23,12 @@ function App() {
         <Route path="/profile/personal" element={<ProfilePersonalPage />} />
         <Route path="/profile/preferences" element={<ProfilePreferencesPage />} />
         <Route path="/profile/skills" element={<ProfileSkillsPage />} />
-        <Route path="/career-goal" element={<CareerGoalPage />} />
+        <Route path="/assessment" element={<AssessmentFlow />} />
+        <Route path="/assessment/results" element={<AssessmentResults />} />
+        <Route path="/learning-path" element={<RoadmapPage />} />
+        <Route path="/login" element={<SignInPage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/results" element={<ResultsHistoryPage />} />
       </Routes>
     </Router>
   );

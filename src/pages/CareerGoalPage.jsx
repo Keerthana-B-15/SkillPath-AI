@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Target, TrendingUp, Users, DollarSign, Clock, CheckCircle, Loader2 } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
+import { Sparkles, Target, Loader2 } from 'lucide-react';
+import supabase from '../supabaseClient';
 
-// Initialize Supabase client
-const supabase = createClient(
-  'https://uchrywxwbllkpwgcqeje.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjaHJ5d3h3Ymxsa3B3Z2NxZWplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwODk2NDcsImV4cCI6MjA4NDY2NTY0N30.8IH6FSB6aMQhF7o7HG9yPwNoiagg0askPaBZsdA7QeM'
-);
 
 export default function CareerGoalPage() {
   const navigate = useNavigate();
@@ -20,14 +15,15 @@ export default function CareerGoalPage() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userId, setUserId] = useState(null);
-  const [currentSkills, setCurrentSkills] = useState([]);
+
 
   const jobRoles = [
+    { value: 'Software Development Engineer', nsqf: 'NSQF 4-7', skillsNeeded: 5 },
     { value: 'Data Analyst', nsqf: 'NSQF 5-6', skillsNeeded: 5 },
-    { value: 'Full Stack Developer', nsqf: 'NSQF 6-7', skillsNeeded: 6 },
-    { value: 'DevOps Engineer', nsqf: 'NSQF 7', skillsNeeded: 7 },
-    { value: 'ML Engineer', nsqf: 'NSQF 8', skillsNeeded: 8 },
-    { value: 'FinTech Analyst', nsqf: 'NSQF 6', skillsNeeded: 5 }
+    { value: 'AI Engineer', nsqf: 'NSQF 5', skillsNeeded: 5 },
+    { value: 'Backend Developer', nsqf: 'NSQF 4-5', skillsNeeded: 7 },
+    { value: 'Frontend Developer', nsqf: 'NSQF 4-5', skillsNeeded: 8 },
+    { value: 'Full Stack Developer', nsqf: 'NSQF 4.5/5', skillsNeeded: 10 },
   ];
 
   const timelines = [
@@ -41,38 +37,6 @@ export default function CareerGoalPage() {
     { value: 'Remote', icon: '🌐' },
     { value: 'Internship', icon: '🎓' }
   ];
-
-  // Mock insights data (in real app, this would come from API)
-  const getInsights = () => {
-    const selectedRole = jobRoles.find(r => r.value === formData.targetJobRole);
-    if (!selectedRole) return null;
-
-    const userSkillCount = currentSkills.filter(s => s !== 'No skills yet').length;
-    const matchPercentage = selectedRole.skillsNeeded > 0 
-      ? Math.min(Math.round((userSkillCount / selectedRole.skillsNeeded) * 100), 100)
-      : 0;
-
-    // Mock data based on role
-    const insights = {
-      'Data Analyst': { openings: 4250, salary: '5.5L', successRate: 87, timeNeeded: 4.5 },
-      'Full Stack Developer': { openings: 3890, salary: '7.2L', successRate: 82, timeNeeded: 6 },
-      'DevOps Engineer': { openings: 2100, salary: '9.5L', successRate: 78, timeNeeded: 7 },
-      'ML Engineer': { openings: 1560, salary: '12.5L', successRate: 73, timeNeeded: 8 },
-      'FinTech Analyst': { openings: 1820, salary: '6.8L', successRate: 85, timeNeeded: 5 }
-    };
-
-    const roleInsights = insights[formData.targetJobRole] || insights['Data Analyst'];
-
-    return {
-      skillsNeeded: selectedRole.skillsNeeded,
-      currentMatch: `${userSkillCount}/${selectedRole.skillsNeeded}`,
-      matchPercentage,
-      timeNeeded: roleInsights.timeNeeded,
-      openings: roleInsights.openings,
-      avgSalary: roleInsights.salary,
-      successRate: roleInsights.successRate
-    };
-  };
 
   // Get current user on component mount
   useEffect(() => {
@@ -96,10 +60,9 @@ export default function CareerGoalPage() {
         .from('learners')
         .select('current_skills, target_job_role, timeline_months, salary_expectation, job_type')
         .eq('user_id', uid)
-        .single();
+        .maybeSingle();
 
       if (data && !error) {
-        setCurrentSkills(data.current_skills || []);
         setFormData({
           targetJobRole: data.target_job_role || '',
           timeline: data.timeline_months?.toString() || '',
@@ -158,9 +121,8 @@ export default function CareerGoalPage() {
       // Save to session storage as backup
       sessionStorage.setItem('careerGoal', JSON.stringify(formData));
       
-      // Success! Navigate to assessment or dashboard
-      alert('Profile setup complete! Ready to start your assessment.');
-      // navigate('/assessment'); // Navigate to assessment page
+      // Navigate to assessment page
+      navigate('/assessment');
       
     } catch (error) {
       console.error('Error saving career goals:', error);
@@ -170,7 +132,6 @@ export default function CareerGoalPage() {
     }
   };
 
-  const insights = getInsights();
 
   return (
     <div className="min-h-screen bg-white">
@@ -358,89 +319,12 @@ export default function CareerGoalPage() {
                 )}
               </button>
             </div>
-
-            {/* Right Column - Auto-Insights */}
-            <div className="lg:col-span-1">
-              <div className="bg-gradient-to-br from-[#2B7A78]/10 to-[#3aafa9]/10 rounded-2xl p-6 border-2 border-[#2B7A78]/20 sticky top-8">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-[#2B7A78]" />
-                  Live Insights
-                </h3>
-
-                {insights ? (
-                  <div className="space-y-4">
-                    {/* Skills Match */}
-                    <div className="bg-white rounded-xl p-4 shadow-sm">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-600">Skills Needed</span>
-                        <span className="text-lg font-bold text-[#2B7A78]">{insights.skillsNeeded}</span>
-                      </div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-600">Your Match</span>
-                        <span className="text-lg font-bold text-[#2B7A78]">{insights.currentMatch}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
-                        <div 
-                          className="bg-[#2B7A78] h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${insights.matchPercentage}%` }}
-                        ></div>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1 text-center">{insights.matchPercentage}% Match</p>
-                    </div>
-
-                    {/* Time Needed */}
-                    <div className="bg-white rounded-xl p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Clock className="w-4 h-4 text-[#2B7A78]" />
-                        <span className="text-sm font-medium text-gray-600">Time Needed</span>
-                      </div>
-                      <p className="text-2xl font-bold text-[#2B7A78]">{insights.timeNeeded} months</p>
-                    </div>
-
-                    {/* Job Openings */}
-                    <div className="bg-white rounded-xl p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Users className="w-4 h-4 text-[#2B7A78]" />
-                        <span className="text-sm font-medium text-gray-600">Current Openings</span>
-                      </div>
-                      <p className="text-2xl font-bold text-[#2B7A78]">{insights.openings.toLocaleString()}</p>
-                      <p className="text-xs text-gray-500 mt-1">in Bangalore</p>
-                    </div>
-
-                    {/* Average Salary */}
-                    <div className="bg-white rounded-xl p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-1">
-                        <DollarSign className="w-4 h-4 text-[#2B7A78]" />
-                        <span className="text-sm font-medium text-gray-600">Average Salary</span>
-                      </div>
-                      <p className="text-2xl font-bold text-[#2B7A78]">₹{insights.avgSalary}</p>
-                      <p className="text-xs text-gray-500 mt-1">per annum</p>
-                    </div>
-
-                    {/* Success Rate */}
-                    <div className="bg-white rounded-xl p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-1">
-                        <CheckCircle className="w-4 h-4 text-[#2B7A78]" />
-                        <span className="text-sm font-medium text-gray-600">Success Rate</span>
-                      </div>
-                      <p className="text-2xl font-bold text-[#2B7A78]">{insights.successRate}%</p>
-                      <p className="text-xs text-gray-500 mt-1">job placement probability</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-xl p-6 text-center">
-                    <Target className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm text-gray-500">Select a job role to see insights</p>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         </div>
 
         {/* Footer Note */}
         <p className="text-center text-xs text-gray-500 mt-8">
-          © 2024 SkillPath AI Learning Systems. All rights reserved.
+          © 2026 SkillPath AI Learning Systems. All rights reserved.
         </p>
       </div>
     </div>

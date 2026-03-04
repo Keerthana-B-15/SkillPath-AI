@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Award, Loader2, CheckCircle2 } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
+import supabase from '../supabaseClient';
 
-// Initialize Supabase client
-const supabase = createClient(
-  'https://uchrywxwbllkpwgcqeje.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjaHJ5d3h3Ymxsa3B3Z2NxZWplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwODk2NDcsImV4cCI6MjA4NDY2NTY0N30.8IH6FSB6aMQhF7o7HG9yPwNoiagg0askPaBZsdA7QeM'
-);
 
 export default function ProfileSkillsPage() {
   const navigate = useNavigate();
@@ -57,7 +52,7 @@ export default function ProfileSkillsPage() {
         .from('learners')
         .select('current_skills')
         .eq('user_id', uid)
-        .single();
+        .maybeSingle();
 
       if (data && !error && data.current_skills) {
         const skills = Array.isArray(data.current_skills) ? data.current_skills : [];
@@ -120,7 +115,7 @@ export default function ProfileSkillsPage() {
       sessionStorage.setItem('profileSkills', JSON.stringify({ skills: skillsToSave }));
       
       // Navigate to career goal page
-      navigate('/career-goal');
+      navigate('/assessment');
       
     } catch (error) {
       console.error('Error saving skills:', error);
@@ -279,7 +274,7 @@ export default function ProfileSkillsPage() {
 
         {/* Footer Note */}
         <p className="text-center text-xs text-gray-500 mt-8">
-          © 2024 SkillPath AI Learning Systems. All rights reserved.
+          © 2026 SkillPath AI Learning Systems. All rights reserved.
         </p>
       </div>
     </div>

@@ -11,6 +11,7 @@ import AssessmentResults from './pages/AssessmentResults';
 import SignInPage from './pages/SignInPage';
 import Dashboard from './pages/Dashboard';
 import ResultsHistoryPage from './pages/ResultsHistoryPage';
+import LearningResourcesPage from './pages/LearningResourcesPage';
 
 
 
@@ -29,6 +30,7 @@ function App() {
         <Route path="/login" element={<SignInPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/results" element={<ResultsHistoryPage />} />
+        <Route path="/learn" element={<LearningResourcesPage />} />
       </Routes>
     </Router>
   );

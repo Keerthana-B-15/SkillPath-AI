@@ -1,67 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, BookOpen, Target, ArrowRight,
   BarChart2, TrendingUp, Zap, Map,
-  LogOut, User, ChevronRight, Star, Briefcase, Brain
+  LogOut, User, ChevronRight, Briefcase, Brain,
+  Trophy, Clock, CheckCircle2, Lock, Flame,
+  Play, CheckCheck, RotateCcw
 } from 'lucide-react';
 import supabase from '../supabaseClient';
 
-// ─── Role-based recommendations ───────────────────────────────────────────────
-const ROLE_RECS = {
-  default: [
-    { icon: '📘', title: 'Build Strong Fundamentals', desc: 'Master core concepts before advancing to specialised topics.', tag: 'Foundation' },
-    { icon: '🛠️', title: 'Work on Real Projects', desc: 'Apply your skills by building portfolio projects from scratch.', tag: 'Practical' },
-    { icon: '🤝', title: 'Join a Community', desc: 'Engage with peers on Discord, Reddit, or LinkedIn groups.', tag: 'Networking' },
-    { icon: '📝', title: 'Document Your Journey', desc: 'Write blogs or LinkedIn posts to solidify learning and build visibility.', tag: 'Growth' },
-  ],
-  'software': [
-    { icon: '💻', title: 'Master Data Structures & Algorithms', desc: 'Practice on LeetCode and HackerRank daily — essential for FAANG interviews.', tag: 'Core Skills', link: 'https://leetcode.com' },
-    { icon: '🌐', title: 'Build Full-Stack Projects', desc: 'Create end-to-end apps using React, Node.js, and a database to show versatility.', tag: 'Portfolio', link: 'https://github.com' },
-    { icon: '☁️', title: 'Learn Cloud Basics', desc: 'AWS or GCP fundamentals are now expected in most software engineer roles.', tag: 'In Demand', link: 'https://aws.amazon.com/training' },
-    { icon: '🔀', title: 'Contribute to Open Source', desc: 'Pick a GitHub project you use and submit your first PR this week.', tag: 'Visibility', link: 'https://github.com/explore' },
-  ],
-  'data': [
-    { icon: '🐍', title: 'Deepen Python & SQL Skills', desc: 'Pandas, NumPy, and advanced SQL queries are the backbone of data work.', tag: 'Core Skills', link: 'https://kaggle.com' },
-    { icon: '📊', title: 'Build a Kaggle Portfolio', desc: 'Participate in competitions and publish notebooks to demonstrate expertise.', tag: 'Portfolio', link: 'https://kaggle.com/competitions' },
-    { icon: '🤖', title: 'Learn Machine Learning Basics', desc: 'Scikit-learn and basic ML workflows will differentiate you from pure analysts.', tag: 'Upskill', link: 'https://scikit-learn.org' },
-    { icon: '📈', title: 'Master a BI Tool', desc: 'Tableau or Power BI proficiency opens doors to analyst and scientist roles alike.', tag: 'In Demand', link: 'https://public.tableau.com' },
-  ],
-  'design': [
-    { icon: '🎨', title: 'Build a Figma Portfolio', desc: 'Create 3–5 high-quality case studies showing your full design process.', tag: 'Portfolio', link: 'https://figma.com' },
-    { icon: '🔬', title: 'Study User Research Methods', desc: 'Learn to conduct interviews and usability tests — employers value research skills heavily.', tag: 'Core Skills' },
-    { icon: '📱', title: 'Design for Mobile First', desc: 'Practice responsive and mobile-first design patterns across device sizes.', tag: 'Practical' },
-    { icon: '🤝', title: 'Collaborate with Developers', desc: 'Learn basic HTML/CSS to communicate better and handoff designs effectively.', tag: 'Growth' },
-  ],
-  'product': [
-    { icon: '📋', title: 'Write Product Specs', desc: 'Practice writing PRDs and user stories. Share them publicly for feedback.', tag: 'Core Skills' },
-    { icon: '📊', title: 'Learn Product Analytics', desc: 'Get hands-on with Mixpanel, Amplitude, or Google Analytics — data drives decisions.', tag: 'In Demand', link: 'https://mixpanel.com' },
-    { icon: '🧪', title: 'Run A/B Tests', desc: 'Understand experiment design and statistical significance for product decisions.', tag: 'Upskill' },
-    { icon: '🗣️', title: 'Talk to Users Weekly', desc: 'Schedule user interviews consistently. Nothing replaces direct customer feedback.', tag: 'Growth' },
-  ],
-  'marketing': [
-    { icon: '📣', title: 'Master SEO Fundamentals', desc: 'Keyword research, on-page SEO, and link building are evergreen marketing skills.', tag: 'Core Skills', link: 'https://ahrefs.com/blog' },
-    { icon: '📧', title: 'Build an Email Campaign', desc: 'Create a real email sequence and measure open rates, CTR, and conversions.', tag: 'Practical' },
-    { icon: '📱', title: 'Learn Paid Social Ads', desc: 'Run a small Meta or Google Ads campaign and optimise for ROAS.', tag: 'In Demand' },
-    { icon: '✍️', title: 'Develop a Content Strategy', desc: 'Plan and publish consistently — content compounds over time.', tag: 'Growth' },
-  ],
-};
+const STATUS = { completed: 'completed', active: 'active', locked: 'locked' };
 
-function getRecsForRole(role) {
-  if (!role) return ROLE_RECS.default;
-  const r = role.toLowerCase();
-  if (r.includes('software') || r.includes('engineer') || r.includes('developer') || r.includes('backend') || r.includes('frontend')) return ROLE_RECS.software;
-  if (r.includes('data') || r.includes('analyst') || r.includes('scientist') || r.includes('ml') || r.includes('machine')) return ROLE_RECS.data;
-  if (r.includes('design') || r.includes('ux') || r.includes('ui')) return ROLE_RECS.design;
-  if (r.includes('product') || r.includes('pm ') || r.includes(' pm')) return ROLE_RECS.product;
-  if (r.includes('market') || r.includes('growth') || r.includes('seo')) return ROLE_RECS.marketing;
-  return ROLE_RECS.default;
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+const getPhaseStatusKey = (pathId) => `lp_phase_statuses_${pathId}`;
+
+function loadPhaseStatuses(pathId, phases) {
+  try {
+    const raw = localStorage.getItem(getPhaseStatusKey(pathId));
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return phases.map((p, i) => p.status ?? (i === 0 ? STATUS.active : STATUS.locked));
+}
+
+function savePhaseStatuses(pathId, statuses) {
+  try { localStorage.setItem(getPhaseStatusKey(pathId), JSON.stringify(statuses)); }
+  catch { /* ignore */ }
+}
+
+function getResourceProgress(pathId, phaseIndex) {
+  try {
+    const done  = localStorage.getItem(`lp_progress_${pathId}_phase_${phaseIndex}`);
+    const total = localStorage.getItem(`lp_resources_${pathId}_phase_${phaseIndex}`);
+    const doneCount  = done  ? JSON.parse(done).length  : 0;
+    const totalCount = total ? JSON.parse(total).length : 0;
+    return { doneCount, totalCount, pct: totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0 };
+  } catch { return { doneCount: 0, totalCount: 0, pct: 0 }; }
 }
 
 // ─── Mini progress ring ───────────────────────────────────────────────────────
 function MiniRing({ pct, size = 56, stroke = 5, color = '#2B7A78' }) {
-  const r = (size - stroke * 2) / 2;
-  const circ = 2 * Math.PI * r;
+  const r = (size - stroke * 2) / 2, circ = 2 * Math.PI * r;
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={stroke} />
@@ -72,10 +52,18 @@ function MiniRing({ pct, size = 56, stroke = 5, color = '#2B7A78' }) {
   );
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
+function ProgressBar({ pct, height = 'h-1.5' }) {
+  return (
+    <div className={`bg-gray-100 rounded-full ${height} overflow-hidden`}>
+      <div className="h-full rounded-full transition-all duration-700"
+        style={{ width: `${pct}%`, background: pct === 100 ? '#10b981' : '#2B7A78' }} />
+    </div>
+  );
+}
+
 function StatCard({ icon: Icon, label, value, sub, accent }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group">
+    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all">
       <div className="flex items-center justify-between mb-4">
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${accent}`}>
           <Icon className="w-4 h-4 text-white" />
@@ -88,110 +76,280 @@ function StatCard({ icon: Icon, label, value, sub, accent }) {
   );
 }
 
-// ─── Recommendation card ─────────────────────────────────────────────────────
-function RecCard({ rec }) {
-  const tagColors = {
-    'Core Skills': 'bg-blue-50 text-blue-700',
-    'Portfolio':   'bg-purple-50 text-purple-700',
-    'In Demand':   'bg-orange-50 text-orange-700',
-    'Practical':   'bg-teal-50 text-[#2B7A78]',
-    'Upskill':     'bg-pink-50 text-pink-700',
-    'Growth':      'bg-emerald-50 text-emerald-700',
-    'Networking':  'bg-indigo-50 text-indigo-700',
-    'Visibility':  'bg-amber-50 text-amber-700',
-    'Foundation':  'bg-gray-100 text-gray-600',
-  };
+// ─── Phase progress card ──────────────────────────────────────────────────────
+function PhaseProgressCard({ phase, index, pathId, status, onClick, onMarkComplete, onRevertPhase }) {
+  const title  = phase.title ?? phase.name ?? phase.phase ?? `Phase ${index + 1}`;
+  const weeks  = phase.duration_weeks ?? phase.weeks ?? null;
+  const { doneCount, totalCount, pct } = getResourceProgress(pathId, index);
+
+  const cfg = {
+    completed: { border: 'border-emerald-200 bg-emerald-50/30', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', text: '✓ Completed', icon: <CheckCircle2 className="w-4 h-4 text-emerald-500" /> },
+    active:    { border: 'border-[#2B7A78]/25 bg-white',        badge: 'bg-teal-50 text-[#2B7A78] border-teal-200',           text: 'In Progress', icon: <div className="w-4 h-4 rounded-full bg-[#2B7A78] flex items-center justify-center"><span className="text-white font-black text-[8px]">{index + 1}</span></div> },
+    locked:    { border: 'border-gray-100 bg-gray-50/70',       badge: 'bg-gray-100 text-gray-400 border-gray-200',           text: 'Upcoming',    icon: <Lock className="w-4 h-4 text-gray-300" /> },
+  }[status] ?? { border: 'border-gray-100 bg-gray-50/70', badge: 'bg-gray-100 text-gray-400 border-gray-200', text: 'Upcoming', icon: <Lock className="w-4 h-4 text-gray-300" /> };
+
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-[#2B7A78]/30 transition-all group">
-      <div className="flex items-start gap-4">
-        <div className="text-2xl shrink-0 mt-0.5">{rec.icon}</div>
+    <div
+      className={`rounded-2xl border-2 ${cfg.border} p-4 transition-all ${status !== STATUS.locked ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
+      onClick={() => status !== STATUS.locked && onClick(index)}
+    >
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 mt-0.5">{cfg.icon}</div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <h4 className="font-bold text-gray-900 text-sm leading-tight">{rec.title}</h4>
-          </div>
-          <p className="text-xs text-gray-500 leading-relaxed mb-3">{rec.desc}</p>
-          <div className="flex items-center justify-between">
-            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wide ${tagColors[rec.tag] ?? 'bg-gray-100 text-gray-500'}`}>
-              {rec.tag}
-            </span>
-            {rec.link && (
-              <a href={rec.link} target="_blank" rel="noopener noreferrer"
-                className="text-xs font-bold text-[#2B7A78] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                Visit <ArrowRight className="w-3 h-3" />
-              </a>
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wide ${cfg.badge}`}>{cfg.text}</span>
+            {weeks && (
+              <span className="flex items-center gap-1 text-[10px] text-gray-400 font-semibold">
+                <Clock className="w-2.5 h-2.5" />{weeks}w
+              </span>
             )}
           </div>
+          <p className={`font-black text-sm leading-tight ${status === STATUS.locked ? 'text-gray-400' : 'text-gray-900'}`}>{title}</p>
+
+          {/* Progress bar — only for unlocked phases */}
+          {status !== STATUS.locked && (
+            <div className="mt-2">
+              {totalCount > 0 ? (
+                <>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] text-gray-400 font-semibold">{doneCount}/{totalCount} resources</span>
+                    <span className={`text-[10px] font-black ${pct === 100 ? 'text-emerald-600' : 'text-[#2B7A78]'}`}>{pct}%</span>
+                  </div>
+                  <ProgressBar pct={pct} />
+                </>
+              ) : (
+                // No resource data yet — show empty bar without ?
+                <ProgressBar pct={0} />
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0 ml-1" onClick={e => e.stopPropagation()}>
+          {status === STATUS.active && (
+            <button
+              onClick={() => onMarkComplete(index)}
+              className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-lg px-2 py-1 transition-all whitespace-nowrap"
+            >
+              <CheckCheck className="w-3 h-3" /> Done
+            </button>
+          )}
+          {status === STATUS.completed && (
+            <button
+              onClick={() => onRevertPhase(index)}
+              className="flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-lg px-2 py-1 transition-all whitespace-nowrap"
+            >
+              <RotateCcw className="w-3 h-3" /> Revert
+            </button>
+          )}
+          {status !== STATUS.locked && <ChevronRight className="w-4 h-4 text-gray-300" />}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Phase row (mini) ─────────────────────────────────────────────────────────
-function PhaseRow({ phase, index }) {
-  const status = phase.status ?? (index === 0 ? 'active' : 'locked');
-  const title  = phase.title ?? phase.name ?? phase.phase_name ?? `Phase ${index + 1}`;
-  const weeks  = phase.duration_weeks ?? phase.weeks ?? null;
-  const statusCfg = {
-    completed: { dot: 'bg-emerald-500', text: 'Completed', badge: 'bg-emerald-50 text-emerald-700' },
-    active:    { dot: 'bg-[#2B7A78]',   text: 'In Progress', badge: 'bg-teal-50 text-[#2B7A78]' },
-    locked:    { dot: 'bg-gray-200',    text: 'Upcoming', badge: 'bg-gray-100 text-gray-400' },
-  };
-  const cfg = statusCfg[status] ?? statusCfg.locked;
+function GapChip({ gap }) {
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-gray-50 last:border-0">
-      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dot}`} />
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-bold truncate ${status === 'locked' ? 'text-gray-400' : 'text-gray-800'}`}>{title}</p>
-        {weeks && <p className="text-xs text-gray-400">{weeks} weeks</p>}
+    <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-red-50 text-red-600 border border-red-100 rounded-full px-3 py-1.5">
+      <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+      {typeof gap === 'string' ? gap : gap.skill ?? String(gap)}
+    </span>
+  );
+}
+
+// ─── Overall progress sidebar ─────────────────────────────────────────────────
+function OverallProgress({ phases, phaseStatuses, pathId, navigate }) {
+  const done   = phaseStatuses.filter(s => s === STATUS.completed).length;
+  const pct    = phases.length ? Math.round((done / phases.length) * 100) : 0;
+
+  let totalResDone = 0, totalRes = 0;
+  phases.forEach((_, i) => {
+    const { doneCount, totalCount } = getResourceProgress(pathId, i);
+    totalResDone += doneCount;
+    totalRes     += totalCount;
+  });
+  const resPct = totalRes > 0 ? Math.round((totalResDone / totalRes) * 100) : 0;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <BarChart2 className="w-4 h-4 text-[#2B7A78]" />
+          <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest">Overall Progress</h3>
+        </div>
+        <button onClick={() => navigate('/learning-path')}
+          className="text-xs font-bold text-[#2B7A78] hover:underline flex items-center gap-1">
+          Full Roadmap <ChevronRight className="w-3 h-3" />
+        </button>
       </div>
-      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0 ${cfg.badge}`}>
-        {cfg.text}
-      </span>
+
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* Phases ring */}
+        <div className="text-center">
+          <div className="relative w-16 h-16 mx-auto mb-2">
+            <MiniRing pct={pct} size={64} stroke={6} color="#2B7A78" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-base font-black text-gray-900 leading-none">{pct}%</span>
+            </div>
+          </div>
+          <p className="text-xs font-black text-gray-700">{done}/{phases.length}</p>
+          <p className="text-[10px] text-gray-400 font-semibold">phases</p>
+        </div>
+
+        {/* Resources ring — no ? when totalRes is 0 */}
+        <div className="text-center">
+          <div className="relative w-16 h-16 mx-auto mb-2">
+            <MiniRing pct={resPct} size={64} stroke={6} color="#10b981" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-base font-black text-gray-900 leading-none">{resPct}%</span>
+            </div>
+          </div>
+          {/* Only show count when we have data; otherwise show a neutral label */}
+          <p className="text-xs font-black text-gray-700">
+            {totalRes > 0 ? `${totalResDone}/${totalRes}` : '—'}
+          </p>
+          <p className="text-[10px] text-gray-400 font-semibold">resources</p>
+        </div>
+      </div>
+
+      {/* Per-phase breakdown */}
+      <div className="space-y-2.5 pt-3 border-t border-gray-100">
+        {phases.map((p, i) => {
+          const s     = phaseStatuses[i] ?? STATUS.locked;
+          const title = p.title ?? p.phase ?? `Phase ${i + 1}`;
+          const { pct: rPct } = getResourceProgress(pathId, i);
+          return (
+            <div key={i}>
+              <div className="flex items-center justify-between mb-1">
+                <span className={`text-[11px] font-bold truncate max-w-[160px] ${s === STATUS.locked ? 'text-gray-300' : 'text-gray-700'}`}>{title}</span>
+                <span className={`text-[10px] font-black ml-2 shrink-0 ${s === STATUS.completed ? 'text-emerald-500' : s === STATUS.active ? 'text-[#2B7A78]' : 'text-gray-300'}`}>
+                  {s === STATUS.completed ? '✓' : s === STATUS.active ? `${rPct}%` : '—'}
+                </span>
+              </div>
+              <ProgressBar pct={s === STATUS.completed ? 100 : s === STATUS.active ? rPct : 0} />
+            </div>
+          );
+        })}
+      </div>
+
+      {totalResDone > 0 && (
+        <div className="flex items-center gap-2 bg-orange-50 border border-orange-100 rounded-xl px-3 py-2.5 mt-4">
+          <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+          <p className="text-xs font-bold text-orange-700">{totalResDone} resources completed!</p>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Dashboard ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// DASHBOARD
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [learner,    setLearner]    = useState(null);
-  const [roadmap,    setRoadmap]    = useState(null);
-  const [assessment, setAssessment] = useState(null);
-  const [loading,    setLoading]    = useState(true);
+  const [learner,       setLearner]       = useState(null);
+  const [roadmap,       setRoadmap]       = useState(null);
+  const [assessment,    setAssessment]    = useState(null);
+  const [phaseStatuses, setPhaseStatuses] = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const pollRef = useRef(null);
+
+  const startPolling = useCallback((pathId, totalPhases) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(() => {
+      setPhaseStatuses(prev => {
+        const next = [...prev];
+        let changed = false;
+        for (let i = 0; i < totalPhases; i++) {
+          if (next[i] === STATUS.active) {
+            const { pct } = getResourceProgress(pathId, i);
+            if (pct === 100) {
+              next[i] = STATUS.completed;
+              if (i + 1 < totalPhases && next[i + 1] === STATUS.locked) next[i + 1] = STATUS.active;
+              changed = true;
+            }
+          }
+        }
+        if (changed) savePhaseStatuses(pathId, next);
+        return changed ? next : prev;
+      });
+    }, 3000);
+  }, []);
+
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   useEffect(() => {
     (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { navigate('/login'); return; }
-
-        const { data: ld } = await supabase
-          .from('learners').select('*').eq('user_id', user.id).maybeSingle();
+        const { data: ld } = await supabase.from('learners').select('*').eq('user_id', user.id).maybeSingle();
         if (!ld) { navigate('/login'); return; }
         setLearner(ld);
 
         const [{ data: rm }, { data: ar }] = await Promise.all([
-          supabase.from('learning_paths').select('*')
-            .eq('learner_id', ld.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-          supabase.from('assessment_results').select('*')
-            .eq('learner_id', ld.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+          supabase.from('learning_paths').select('*').eq('learner_id', ld.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+          supabase.from('assessment_results').select('*').eq('learner_id', ld.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         ]);
-
         setRoadmap(rm);
         setAssessment(ar);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [navigate]);
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
-  };
+        if (rm) {
+          const phases = Array.isArray(rm.phases) ? rm.phases : Object.values(rm.phases ?? {});
+          setPhaseStatuses(loadPhaseStatuses(rm.id, phases));
+          startPolling(rm.id, phases.length);
+        }
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    })();
+  }, [navigate, startPolling]);
+
+  const handleSignOut = async () => { await supabase.auth.signOut(); navigate('/login'); };
+  const handlePhaseClick = (i) => navigate(`/learn?phase=${i}`);
+
+  const handleMarkComplete = useCallback((phaseIndex) => {
+    if (!roadmap) return;
+    setPhaseStatuses(prev => {
+      const next = [...prev];
+      next[phaseIndex] = STATUS.completed;
+      if (phaseIndex + 1 < next.length && next[phaseIndex + 1] === STATUS.locked) next[phaseIndex + 1] = STATUS.active;
+      savePhaseStatuses(roadmap.id, next);
+      return next;
+    });
+    try {
+      const phases = Array.isArray(roadmap.phases) ? roadmap.phases : Object.values(roadmap.phases ?? {});
+      supabase.from('learning_paths').update({
+        phases: phases.map((p, i) => {
+          if (i === phaseIndex) return { ...p, status: STATUS.completed };
+          if (i === phaseIndex + 1 && (p.status ?? STATUS.locked) === STATUS.locked) return { ...p, status: STATUS.active };
+          return p;
+        }),
+      }).eq('id', roadmap.id);
+    } catch { /* ignore */ }
+  }, [roadmap]);
+
+  const handleRevertPhase = useCallback((phaseIndex) => {
+    if (!roadmap) return;
+    setPhaseStatuses(prev => {
+      const next = [...prev];
+      next[phaseIndex] = STATUS.active;
+      if (phaseIndex + 1 < next.length && next[phaseIndex + 1] === STATUS.active)
+        next[phaseIndex + 1] = STATUS.locked;
+      savePhaseStatuses(roadmap.id, next);
+      return next;
+    });
+    try {
+      const phases = Array.isArray(roadmap.phases) ? roadmap.phases : Object.values(roadmap.phases ?? {});
+      supabase.from('learning_paths').update({
+        phases: phases.map((p, i) => {
+          if (i === phaseIndex) return { ...p, status: STATUS.active };
+          if (i === phaseIndex + 1 && (p.status ?? STATUS.active) === STATUS.active) return { ...p, status: STATUS.locked };
+          return p;
+        }),
+      }).eq('id', roadmap.id);
+    } catch { /* ignore */ }
+  }, [roadmap]);
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -204,34 +362,27 @@ export default function Dashboard() {
     </div>
   );
 
-  // Compute stats
   let phases = [];
   if (Array.isArray(roadmap?.phases)) phases = roadmap.phases;
-  else if (roadmap?.phases && typeof roadmap.phases === 'object')
-    phases = Object.entries(roadmap.phases).map(([k, v]) => ({ ...v, title: v.title ?? v.name ?? k }));
+  else if (roadmap?.phases) phases = Object.entries(roadmap.phases).map(([k, v]) => ({ ...v, title: v.title ?? v.name ?? k }));
 
-  const done       = phases.filter(p => p.status === 'completed').length;
-  const pct        = phases.length ? Math.round((done / phases.length) * 100) : 0;
-  const score      = assessment?.overall_percentage ?? null;
-  const skillGaps  = assessment?.skill_gaps ?? [];
-  const recs       = getRecsForRole(learner?.target_job_role);
-  const firstName  = (learner?.full_name ?? learner?.name ?? 'Learner').split(' ')[0];
-  const sp         = roadmap?.success_probability != null
-    ? `${(parseFloat(roadmap.success_probability) < 1
-        ? parseFloat(roadmap.success_probability) * 100
-        : parseFloat(roadmap.success_probability)).toFixed(0)}%`
+  const done      = phaseStatuses.filter(s => s === STATUS.completed).length;
+  const pct       = phases.length ? Math.round((done / phases.length) * 100) : 0;
+  const score     = assessment?.overall_percentage ?? null;
+  const skillGaps = assessment?.skill_gaps ?? [];
+  const firstName = (learner?.full_name ?? learner?.name ?? 'Learner').split(' ')[0];
+  const sp        = roadmap?.success_probability != null
+    ? `${(parseFloat(roadmap.success_probability) < 1 ? parseFloat(roadmap.success_probability) * 100 : parseFloat(roadmap.success_probability)).toFixed(0)}%`
     : '—';
 
-  const greeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
+  const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
+  const activePhaseIndex = phaseStatuses.findIndex(s => s === STATUS.active);
+  const safeIdx          = activePhaseIndex < 0 ? 0 : activePhaseIndex;
+  const activePhase      = phases[safeIdx];
+  const activeSkills     = activePhase?.skills ?? activePhase?.key_skills ?? [];
 
   return (
     <div className="min-h-screen bg-gray-50/60">
-
       {/* Header */}
       <header className="bg-white/95 backdrop-blur border-b border-gray-200 sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
@@ -258,13 +409,11 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* Welcome hero */}
         <div className="rounded-3xl overflow-hidden relative"
-          style={{ background: 'linear-gradient(135deg, #2B7A78 0%, #3aafa9 60%, #17c3b2 100%)' }}>
+          style={{ background: 'linear-gradient(135deg,#2B7A78 0%,#3aafa9 60%,#17c3b2 100%)' }}>
           <div className="absolute -top-16 -right-16 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-1/4 w-48 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
           <div className="relative px-8 py-8 md:px-10 flex flex-col md:flex-row md:items-center gap-6 md:gap-10">
             <div className="flex-1">
               <p className="text-white/60 text-sm font-semibold mb-1">{greeting()},</p>
@@ -276,11 +425,28 @@ export default function Dashboard() {
                 </div>
                 {score !== null && (
                   <div className="flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1.5">
-                    <Star className="w-3.5 h-3.5 text-white/80" />
+                    <BarChart2 className="w-3.5 h-3.5 text-white/80" />
                     <span className="text-xs font-bold text-white">Assessment: {score.toFixed(0)}%</span>
                   </div>
                 )}
+                {pct === 100 && phases.length > 0 && (
+                  <div className="flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1.5">
+                    <Trophy className="w-3.5 h-3.5 text-yellow-300" />
+                    <span className="text-xs font-bold text-white">Roadmap Complete!</span>
+                  </div>
+                )}
               </div>
+              {roadmap && (
+                <div className="mt-5 max-w-sm">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-white/60 text-xs font-semibold">{done}/{phases.length} phases complete</span>
+                    <span className="text-white font-black text-xs">{pct}%</span>
+                  </div>
+                  <div className="bg-white/20 rounded-full h-2 overflow-hidden">
+                    <div className="h-full rounded-full bg-white transition-all duration-700" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              )}
             </div>
             {roadmap && (
               <div className="flex items-center gap-5 shrink-0">
@@ -294,10 +460,12 @@ export default function Dashboard() {
                 <div>
                   <p className="text-white font-black text-lg leading-none">{done}/{phases.length}</p>
                   <p className="text-white/60 text-xs font-semibold mt-0.5">phases complete</p>
-                  <button onClick={() => navigate('/learning-path')}
-                    className="mt-3 flex items-center gap-1.5 bg-white text-[#2B7A78] text-xs font-black px-4 py-2 rounded-xl hover:bg-teal-50 transition-colors shadow-lg">
-                    View Roadmap <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  {activePhase && (
+                    <button onClick={() => handlePhaseClick(safeIdx)}
+                      className="mt-3 flex items-center gap-1.5 bg-white text-[#2B7A78] text-xs font-black px-4 py-2 rounded-xl hover:bg-teal-50 transition-colors shadow-lg">
+                      Continue Learning <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -310,105 +478,149 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Stats row */}
+        {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
-          <StatCard icon={Map}       label="Roadmap Phases" value={phases.length || '—'} sub="total milestones" accent="bg-[#2B7A78]" />
-          <StatCard icon={BarChart2} label="Success Rate"   value={sp}                   sub="predicted"        accent="bg-teal-500" />
-          <StatCard icon={Target}    label="Assessment"     value={score !== null ? `${score.toFixed(0)}%` : '—'} sub="overall score" accent="bg-indigo-500" />
-          <StatCard icon={TrendingUp} label="Skill Gaps"    value={skillGaps.length || '—'} sub="identified"   accent="bg-orange-400" />
+          <StatCard icon={Map}        label="Roadmap Phases" value={phases.length || '—'} sub="total milestones"                    accent="bg-[#2B7A78]" />
+          <StatCard icon={BarChart2}  label="Success Rate"   value={sp}                   sub="predicted"                           accent="bg-teal-500" />
+          <StatCard icon={Target}     label="Assessment"     value={score !== null ? `${score.toFixed(0)}%` : '—'} sub="overall"   accent="bg-indigo-500" />
+          <StatCard icon={TrendingUp} label="Skill Gaps"     value={skillGaps.length || '—'} sub="identified"                      accent="bg-orange-400" />
         </div>
 
-        {/* Main 2-col layout */}
+        {/* Main layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* LEFT */}
+          <div className="lg:col-span-2 space-y-5">
 
-          {/* Left — Recommendations (2/3 width) */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-[#2B7A78]" />
-                <h2 className="text-lg font-black text-gray-900">
-                  Recommendations for {learner?.target_job_role ?? 'You'}
-                </h2>
+            {/* Current phase */}
+            {activePhase && roadmap && (
+              <div className="bg-white rounded-2xl border-2 border-[#2B7A78]/20 p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#2B7A78] animate-pulse" />
+                    <h2 className="font-black text-gray-900 text-sm uppercase tracking-widest">Currently Learning</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleMarkComplete(safeIdx)}
+                      className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-xs font-black px-3 py-2 rounded-xl transition-all">
+                      <CheckCheck className="w-3.5 h-3.5" /> Mark Done
+                    </button>
+                    <button onClick={() => handlePhaseClick(safeIdx)}
+                      className="flex items-center gap-1.5 bg-[#2B7A78] text-white text-xs font-black px-4 py-2 rounded-xl hover:bg-[#1f5a58] transition-all shadow-md shadow-[#2B7A78]/20">
+                      Continue <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <h3 className="font-black text-xl text-gray-900 mb-1">
+                  {activePhase.title ?? activePhase.phase ?? `Phase ${safeIdx + 1}`}
+                </h3>
+                {activePhase.description && (
+                  <p className="text-sm text-gray-500 leading-relaxed mb-4">{activePhase.description}</p>
+                )}
+
+                {activeSkills.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Skills in this phase</p>
+                    <div className="flex flex-wrap gap-2">
+                      {activeSkills.map((s, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 text-xs font-bold bg-teal-50 text-[#2B7A78] border border-teal-100 rounded-full px-3 py-1.5">
+                          <Zap className="w-2.5 h-2.5" />
+                          {typeof s === 'string' ? s : s.name ?? String(s)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(() => {
+                  const { doneCount, totalCount, pct: rPct } = getResourceProgress(roadmap?.id, safeIdx);
+                  if (totalCount === 0) return null;
+                  return (
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-bold text-gray-600">Resource Progress</span>
+                        <span className="text-xs font-black text-[#2B7A78]">{doneCount}/{totalCount} · {rPct}%</span>
+                      </div>
+                      <ProgressBar pct={rPct} />
+                    </div>
+                  );
+                })()}
               </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {recs.map((rec, i) => <RecCard key={i} rec={rec} />)}
-            </div>
+            )}
+
+            {/* All phases */}
+            {phases.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-[#2B7A78]" />
+                    <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest">All Phases</h3>
+                  </div>
+                  <button onClick={() => navigate('/learning-path')}
+                    className="text-xs font-bold text-[#2B7A78] hover:underline flex items-center gap-1">
+                    Full Roadmap <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {phases.map((p, i) => (
+                    <PhaseProgressCard
+                      key={i} phase={p} index={i} pathId={roadmap?.id}
+                      status={phaseStatuses[i] ?? (i === 0 ? STATUS.active : STATUS.locked)}
+                      onClick={handlePhaseClick}
+                      onMarkComplete={handleMarkComplete}
+                      onRevertPhase={handleRevertPhase}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Skill gaps */}
             {skillGaps.length > 0 && (
-              <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm mt-2">
+              <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <Brain className="w-4 h-4 text-[#2B7A78]" />
                   <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest">Your Skill Gaps</h3>
+                  <span className="text-xs text-gray-400 font-semibold ml-auto">Addressed by your roadmap</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {skillGaps.map((gap, i) => (
-                    <span key={i} className="inline-flex items-center gap-1.5 text-xs font-bold bg-red-50 text-red-600 border border-red-100 rounded-full px-3 py-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
-                      {typeof gap === 'string' ? gap : gap.skill ?? String(gap)}
-                    </span>
-                  ))}
+                  {skillGaps.map((gap, i) => <GapChip key={i} gap={gap} />)}
                 </div>
-                <p className="text-xs text-gray-400 mt-3">These are areas where your assessment showed room for improvement. Your roadmap is tailored to address them.</p>
+                <button onClick={() => handlePhaseClick(safeIdx)}
+                  className="mt-4 flex items-center gap-2 text-xs font-bold text-[#2B7A78] hover:underline">
+                  <Play className="w-3 h-3" /> Start learning to close these gaps
+                </button>
               </div>
             )}
           </div>
 
-          {/* Right — Roadmap snapshot (1/3 width) */}
+          {/* RIGHT sidebar */}
           <div className="space-y-4">
-
-            {/* Roadmap phases mini */}
-            <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-[#2B7A78]" />
-                  <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest">Your Path</h3>
-                </div>
-                <button onClick={() => navigate('/learning-path')}
-                  className="text-xs font-bold text-[#2B7A78] hover:underline flex items-center gap-1">
-                  View all <ChevronRight className="w-3 h-3" />
-                </button>
-              </div>
-              {phases.length > 0 ? (
-                <div>
-                  {phases.slice(0, 5).map((p, i) => <PhaseRow key={i} phase={p} index={i} />)}
-                  {phases.length > 5 && (
-                    <p className="text-xs text-gray-400 text-center mt-2">+{phases.length - 5} more phases</p>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <Map className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-                  <p className="text-sm text-gray-400 mb-3">No roadmap yet</p>
-                  <button onClick={() => navigate('/learning-path')}
-                    className="text-xs font-bold text-white bg-[#2B7A78] px-4 py-2 rounded-lg">
-                    Generate Roadmap
-                  </button>
-                </div>
-              )}
-            </div>
+            {roadmap && (
+              <OverallProgress phases={phases} phaseStatuses={phaseStatuses} pathId={roadmap?.id} navigate={navigate} />
+            )}
 
             {/* Quick actions */}
             <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
               <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest mb-4">Quick Actions</h3>
               <div className="space-y-2">
                 {[
-                  { label: 'View Full Roadmap', icon: Map, route: '/learning-path', color: 'text-[#2B7A78]', bg: 'hover:bg-teal-50' },
-                  { label: 'Retake Assessment', icon: Brain, route: '/assessment', color: 'text-indigo-600', bg: 'hover:bg-indigo-50' },
-                  { label: 'View Results', icon: BarChart2, route: '/results', color: 'text-orange-600', bg: 'hover:bg-orange-50' },
+                  { label: 'Continue Learning', icon: Play,      onClick: () => handlePhaseClick(safeIdx),  color: 'text-white',      bg: 'bg-[#2B7A78] hover:bg-[#1f5a58]', primary: true },
+                  { label: 'View Full Roadmap',  icon: Map,       onClick: () => navigate('/learning-path'), color: 'text-[#2B7A78]',  bg: 'hover:bg-teal-50' },
+                  { label: 'Retake Assessment',  icon: Brain,     onClick: () => navigate('/assessment'),   color: 'text-indigo-600', bg: 'hover:bg-indigo-50' },
+                  { label: 'View Results',       icon: BarChart2, onClick: () => navigate('/results'),      color: 'text-orange-600', bg: 'hover:bg-orange-50' },
                 ].map((a, i) => (
-                  <button key={i} onClick={() => navigate(a.route)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${a.bg} group`}>
+                  <button key={i} onClick={a.onClick}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${a.bg} ${a.primary ? 'shadow-md shadow-[#2B7A78]/20' : ''}`}>
                     <a.icon className={`w-4 h-4 ${a.color}`} />
                     <span className={`text-sm font-bold ${a.color}`}>{a.label}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 ml-auto" />
+                    {!a.primary && <ArrowRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 ml-auto" />}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Learner info */}
+            {/* Learner profile */}
             <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <User className="w-4 h-4 text-[#2B7A78]" />
@@ -416,12 +628,12 @@ export default function Dashboard() {
               </div>
               <div className="space-y-2.5 text-sm">
                 {[
-                  { label: 'Name', value: learner?.full_name ?? learner?.name },
-                  { label: 'Goal', value: learner?.target_job_role },
-                  { label: 'Education', value: learner?.education_level },
+                  { label: 'Name',       value: learner?.full_name ?? learner?.name },
+                  { label: 'Goal',       value: learner?.target_job_role },
+                  { label: 'Education',  value: learner?.education_level },
                   { label: 'Hours/week', value: learner?.hours_per_week ? `${learner.hours_per_week}h` : null },
-                  { label: 'Timeline', value: learner?.timeline_months ? `${learner.timeline_months} months` : null },
-                  { label: 'Style', value: learner?.learning_style },
+                  { label: 'Timeline',   value: learner?.timeline_months ? `${learner.timeline_months} months` : null },
+                  { label: 'Style',      value: learner?.learning_style },
                 ].filter(r => r.value).map((row, i) => (
                   <div key={i} className="flex items-start justify-between gap-2">
                     <span className="text-gray-400 font-semibold shrink-0">{row.label}</span>
@@ -433,9 +645,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-300 pb-4">
-          © 2026 SkillPath AI Learning Systems. All rights reserved.
-        </p>
+        <p className="text-center text-xs text-gray-300 pb-4">© 2026 SkillPath AI Learning Systems. All rights reserved.</p>
       </main>
     </div>
   );

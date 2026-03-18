@@ -75,15 +75,7 @@ function classifySkillsAcrossPhases(allGaps, skillLevelMap, totalPhases) {
   return buckets;
 }
 
-function hasRealSkills(skills) {
-  const PYTHON_VARS = ['foundation', 'intermediate', 'advanced', 'beginner', 'basic'];
-  if (!Array.isArray(skills) || skills.length === 0) return false;
-  return skills.every(s => {
-    if (typeof s !== 'string' || !s.trim()) return false;
-    if (PYTHON_VARS.includes(s.trim().toLowerCase())) return false;
-    return true;
-  });
-}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LOCALSTORAGE HELPERS

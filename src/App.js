@@ -11,7 +11,7 @@ import AssessmentResults from './pages/AssessmentResults';
 import SignInPage from './pages/SignInPage';
 import Dashboard from './pages/Dashboard';
 import ResultsHistoryPage from './pages/ResultsHistoryPage';
-import LearningResourcesPage from './pages/LearningResourcesPage';
+import LearningResourcesPage from './pages/LearningResourcespage';
 
 
 
